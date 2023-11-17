@@ -1,6 +1,5 @@
 // 22850034 ASD Customer App Flutter
 
-import 'dart:convert';
 import 'dart:math';
 import 'package:customer_app/api/backend_api.dart';
 import 'package:customer_app/servivces/formatter.dart';
@@ -44,6 +43,8 @@ class NewTrip extends StatefulWidget {
 class _NewTripState extends State<NewTrip> {
   LatLngBounds? cameraViewportLatLngBounds;
 
+  TripDataEntity? tripDataEntity;
+
   ResolvedAddress? from;
   ResolvedAddress? to;
 
@@ -70,9 +71,18 @@ class _NewTripState extends State<NewTrip> {
     });
 
     /** Got a trip */
-    socket.on('available_trip', (_) {
+    socket.on('available_trip', (data) {
       logger.i('We got a new trip!');
-      showNewTripPopup();
+      logger.i(data);
+
+      tripDataEntity = TripDataEntity.fromJson(data);
+      driverInfo = DriverInfo.getDummy();
+      from = tripDataEntity!.from;
+      to = tripDataEntity!.to;
+      tripFare = tripDataEntity!.fare;
+
+      // recalcRoute();
+      showNewTripPopup(tripDataEntity!);
     });
 
     socket.on('message', (data) {
@@ -107,8 +117,7 @@ class _NewTripState extends State<NewTrip> {
         if (mounted) setState(() {});
       }
 
-      tripFare = await ApiService.calculateTripFare(tripDistanceMeters);
-      tripFareText = await formatCurrency(tripFare);
+      tripFareText = await formatCurrency(tripDataEntity!.fare);
 
       final polylinePoints = createPolylinePointsFromDirections(response)!;
 
@@ -300,7 +309,12 @@ class _NewTripState extends State<NewTrip> {
     });
   }
 
-  void startNewTrip(BuildContext context, CustomerInfo customerInfo) async {
+  void startNewTrip(BuildContext context, CustomerInfo customerInfo,
+      TripDataEntity trip) async {
+    await recalcRoute();
+    adjustMapViewBounds();
+    if (mounted) setState(() {});
+
     final newTrip = TripDataEntity(
         from: from!,
         to: to!,
@@ -309,13 +323,14 @@ class _NewTripState extends State<NewTrip> {
         distanceText: tripDistanceText,
         mapLatLngBounds: _mapCameraViewBounds!,
         cameraPosition: _latestCameraPosition,
-        customerInfo: customerInfo);
+        customerInfo: customerInfo,
+        fare: tripFare);
 
     final trip = TripProvider.of(context, listen: false);
     trip.activateTrip(newTrip);
   }
 
-  void showNewTripPopup() {
+  void showNewTripPopup(TripDataEntity dataEntity) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -326,7 +341,7 @@ class _NewTripState extends State<NewTrip> {
           elevation: 0.0,
           backgroundColor: Colors.transparent,
           child: Container(
-            padding: EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
               color: Colors.white,
@@ -337,35 +352,37 @@ class _NewTripState extends State<NewTrip> {
                 // Customer's Avatar and Phone Number
                 CircleAvatar(
                   // Replace with the customer's avatar
-                  backgroundImage: AssetImage('assets/customer_avatar.png'),
+                  backgroundImage:
+                      NetworkImage(dataEntity.customerInfo.avatarUrl),
                   radius: 40.0,
                 ),
-                SizedBox(height: 16.0),
+                const SizedBox(height: 16.0),
                 Text(
-                  'Customer Phone Number', // Replace with the actual phone number
-                  style: TextStyle(
+                  "${dataEntity.customerInfo.name} - ${dataEntity.customerInfo.phoneNumber}",
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16.0,
                   ),
                 ),
-                SizedBox(height: 16.0),
+                const SizedBox(height: 16.0),
                 // From and To Addresses
                 Text(
-                  'From: ${from?.mainText ?? ""}',
-                  style: TextStyle(fontSize: 14.0),
+                  'From: ${dataEntity.from.mainText}',
+                  style: const TextStyle(fontSize: 12.0),
                 ),
-                SizedBox(height: 8.0),
+                const SizedBox(height: 8.0),
                 Text(
-                  'To: ${to?.mainText ?? ""}',
-                  style: TextStyle(fontSize: 14.0),
+                  'To: ${dataEntity.to.mainText}',
+                  style: const TextStyle(fontSize: 12.0),
                 ),
-                SizedBox(height: 16.0),
+                const SizedBox(height: 16.0),
                 // Length
                 Text(
-                  'Length: ${tripDistanceText.isNotEmpty ? tripDistanceText : "Calculating..."}',
-                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+                  'Length: ${dataEntity.distanceText}',
+                  style: const TextStyle(
+                      fontSize: 10.0, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 16.0),
+                const SizedBox(height: 16.0),
                 // Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -373,17 +390,20 @@ class _NewTripState extends State<NewTrip> {
                     ElevatedButton(
                       onPressed: () {
                         // Handle Select button click
-                        Navigator.of(context).pop(); // Close the popup
+                        Navigator.of(context).pop();
+                        startNewTrip(context, tripDataEntity!.customerInfo,
+                            tripDataEntity!);
+                        // Close the popup
                       },
-                      child: Text('Select'),
+                      child: const Text('Accept'),
                     ),
-                    SizedBox(width: 16.0),
+                    const SizedBox(width: 16.0),
                     OutlinedButton(
                       onPressed: () {
                         // Handle Cancel button click
                         Navigator.of(context).pop(); // Close the popup
                       },
-                      child: Text('Cancel'),
+                      child: const Text('Decline'),
                     ),
                   ],
                 ),

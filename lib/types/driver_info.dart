@@ -22,7 +22,7 @@ class DriverInfo {
     required this.currentLocation,
   });
 
-  factory DriverInfo.fromJson(Map<String, dynamic> json) {
+  factory DriverInfo.fromJson(json) {
     return DriverInfo(
       json['driver']['id'],
       json['driver']['avatarUrl'],
@@ -40,5 +40,24 @@ class DriverInfo {
         secondaryText: json['driver']['currentLocation']['address'],
       ),
     );
+  }
+
+  factory DriverInfo.getDummy() {
+    return DriverInfo.fromJson({
+      "driver": {
+        "id": "962a8325-0cfd-4853-9fd9-108e6e0ed155",
+        "name": "John Doe",
+        "licensePlate": "51B1-123456",
+        "carInfo": "Toyota Camry",
+        "phoneNumber": "+1234567890",
+        "avatarUrl": "https://i.ibb.co/L81BT4w/avatar-portrait.png",
+        "rating": "4",
+        "currentLocation": {
+          "latitude": 10.8398821,
+          "longitude": 106.8293289,
+          "address": "Some Street, City, Country"
+        }
+      }
+    });
   }
 }

@@ -16,19 +16,19 @@ class CustomerInfo {
     required this.currentLocation,
   });
 
-  factory CustomerInfo.fromJson(Map<String, dynamic> json) {
+  factory CustomerInfo.fromJson(json) {
     return CustomerInfo(
-      json['driver']['id'],
-      json['driver']['avatarUrl'],
-      phoneNumber: json['driver']['phoneNumber'],
-      name: json['driver']['name'],
+      json['id'],
+      json['avatarUrl'],
+      phoneNumber: json['phoneNumber'],
+      name: json['name'],
       currentLocation: ResolvedAddress(
         location: dir.Location(
-          lat: json['driver']['currentLocation']['latitude'],
-          lng: json['driver']['currentLocation']['longitude'],
+          lat: json['currentLocation']['latitude'],
+          lng: json['currentLocation']['longitude'],
         ),
-        mainText: json['driver']['currentLocation']['address'],
-        secondaryText: json['driver']['currentLocation']['address'],
+        mainText: json['currentLocation']['address'],
+        secondaryText: json['currentLocation']['address'],
       ),
     );
   }

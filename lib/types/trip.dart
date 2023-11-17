@@ -45,6 +45,7 @@ class TripDataEntity {
   CameraPosition? cameraPosition;
   DriverInfo? driverInfo;
   CustomerInfo customerInfo;
+  int fare;
 
   TripDataEntity(
       {this.tripId,
@@ -55,65 +56,66 @@ class TripDataEntity {
       required this.distanceText,
       required this.mapLatLngBounds,
       required this.customerInfo,
+      required this.fare,
       this.driverInfo,
       this.cameraPosition,
       this.status = ExTripStatus.submitted});
 
-  TripDataEntity tripDataEntityFromJson(Map<String, dynamic> json) {
+  factory TripDataEntity.fromJson(json) {
     // Extract customer info
     CustomerInfo customerInfo = CustomerInfo.fromJson(json['customer']);
 
     // Extract other trip details
     return TripDataEntity(
-      tripId: json['tripId'],
-      from: ResolvedAddress(
-        location: Location(
-          lat: json['from']['location']['lat'],
-          lng: json['from']['location']['lng'],
+        tripId: json['tripId'],
+        from: ResolvedAddress(
+          location: Location(
+            lat: json['from']['location']['lat'],
+            lng: json['from']['location']['lng'],
+          ),
+          mainText: json['from']['mainText'],
+          secondaryText: json['from']['secondaryText'],
         ),
-        mainText: json['from']['mainText'],
-        secondaryText: json['from']['secondaryText'],
-      ),
-      to: ResolvedAddress(
-        location: Location(
-          lat: json['to']['location']['lat'],
-          lng: json['to']['location']['lng'],
+        to: ResolvedAddress(
+          location: Location(
+            lat: json['to']['location']['lat'],
+            lng: json['to']['location']['lng'],
+          ),
+          mainText: json['to']['mainText'],
+          secondaryText: json['to']['secondaryText'],
         ),
-        mainText: json['to']['mainText'],
-        secondaryText: json['to']['secondaryText'],
-      ),
-      polyline: Polyline(
-        polylineId: PolylineId('polyline-1'),
-        width: 5,
-        color: Colors.blue,
-        points: (json['polyline']['points'] as List<dynamic>)
-            .map((point) => LatLng(point['lat'], point['lng']))
-            .toList(),
-      ),
-      distanceMeters: json['distanceMeters'],
-      distanceText: json['distanceText'],
-      status: ExTripStatus.values.firstWhere(
-        (e) => e.toString() == 'ExTripStatus.${json['status']}',
-      ),
-      mapLatLngBounds: LatLngBounds(
-        northeast: LatLng(
-          json['mapLatLngBounds']['northeast']['lat'],
-          json['mapLatLngBounds']['northeast']['lng'],
+        polyline: Polyline(
+          polylineId: PolylineId('polyline-1'),
+          width: 5,
+          color: Colors.blue,
+          points: (json['polyline']['points'] as List<dynamic>)
+              .map((point) => LatLng(point['lat'], point['lng']))
+              .toList(),
         ),
-        southwest: LatLng(
-          json['mapLatLngBounds']['southwest']['lat'],
-          json['mapLatLngBounds']['southwest']['lng'],
+        distanceMeters: json['distanceMeters'],
+        distanceText: json['distanceText'],
+        status: ExTripStatus.values.firstWhere(
+          (e) => e.toString() == 'ExTripStatus.${json['status']}',
         ),
-      ),
-      cameraPosition: CameraPosition(
-        target: LatLng(
-          json['cameraPosition']['target']['lat'],
-          json['cameraPosition']['target']['lng'],
+        mapLatLngBounds: LatLngBounds(
+          northeast: LatLng(
+            json['mapLatLngBounds']['northeast']['lat'],
+            json['mapLatLngBounds']['northeast']['lng'],
+          ),
+          southwest: LatLng(
+            json['mapLatLngBounds']['southwest']['lat'],
+            json['mapLatLngBounds']['southwest']['lng'],
+          ),
         ),
-        zoom: json['cameraPosition']['zoom'],
-      ),
-      driverInfo: driverInfo,
-      customerInfo: customerInfo,
-    );
+        cameraPosition: CameraPosition(
+          target: LatLng(
+            json['cameraPosition']['target']['lat'],
+            json['cameraPosition']['target']['lng'],
+          ),
+          zoom: json['cameraPosition']['zoom'],
+        ),
+        driverInfo: null,
+        customerInfo: customerInfo,
+        fare: json['fare']);
   }
 }

@@ -3,7 +3,6 @@
 import 'package:customer_app/types/driver_info.dart';
 import 'package:flutter/material.dart';
 import 'package:customer_app/types/trip.dart';
-import 'package:customer_app/api/backend_api.dart';
 import 'package:customer_app/servivces/map_service.dart';
 import 'package:customer_app/types/resolved_address.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -180,21 +179,19 @@ class TripProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void activateTrip(TripDataEntity trip) {
+  Future<void> activateTrip(TripDataEntity trip) async {
     stopTripWorkflow();
     activeTrip = trip;
-    const String customerId = "022848e7-a724-4692-bb94-9f377a182fea";
-    ApiService.createTrip(customerId, trip).then((tripId) {
-      trip.tripId = tripId;
-      setTripStatus(ExTripStatus.submitted);
-      openSocketForNewTrip(trip);
-    }).catchError((apiError) {
-      logger.e('Error starting trip (API): $apiError');
-    });
+    setTripStatus(ExTripStatus.allocated);
+    updateMapPoyline(await MapHelper.getCurrentLocation(), activeTrip!.from);
+    notifyListeners();
+
+    // TODO
+    // openSocketForNewTrip(trip);
   }
 
   void updateMapPoyline(ResolvedAddress from, ResolvedAddress to) async {
-    Polyline newPolyline = await MapHelper.getPolyline(from, to);
+    var newPolyline = await MapHelper.getPolyline(from, to);
     activeTrip?.polyline = newPolyline;
     notifyListeners();
   }

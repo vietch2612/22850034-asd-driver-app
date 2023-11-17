@@ -1,9 +1,11 @@
 import 'package:customer_app/providers/active_trip.dart';
 import 'package:customer_app/types/resolved_address.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_webservice/directions.dart' as dir;
 import 'package:customer_app/api/google_api.dart';
+import 'package:google_maps_webservice/places.dart';
 
 class MapHelper {
   static Future<Polyline> getPolyline(
@@ -30,11 +32,8 @@ class MapHelper {
     final polylinePoints = createPolylinePointsFromDirections(response);
 
     if (polylinePoints == null) {
-      // TODO Handle the case where polylinePoints is null.
       return temp;
     }
-
-    logger.i("All good ulti here!");
 
     return Polyline(
       polylineId: const PolylineId('polyline-1'),
@@ -70,5 +69,13 @@ class MapHelper {
     );
 
     // controller.addMarker(marker);
+  }
+
+  static Future<ResolvedAddress> getCurrentLocation() async {
+    final cp = await Geolocator.getCurrentPosition();
+    return ResolvedAddress(
+        location: Location(lat: cp.latitude, lng: cp.longitude),
+        mainText: "mainText",
+        secondaryText: "secondaryText");
   }
 }

@@ -47,9 +47,6 @@ class LocationProvider with ChangeNotifier {
         secondaryText: f.addressComponents.skip(mainPart).join(',').toString(),
         location: f.geometry.location,
       );
-
-      showScaffoldSnackBarMessage(
-          '${currentAddress!.mainText} was set as a current location.');
     } catch (e) {
       showScaffoldSnackBarMessage(e.toString());
     } finally {
