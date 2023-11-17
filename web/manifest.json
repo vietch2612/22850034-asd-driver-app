@@ -1,6 +1,6 @@
 {
-    "name": "driver_app",
-    "short_name": "driver_app",
+    "name": "flutterbasetaxi",
+    "short_name": "flutterbasetaxi",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
