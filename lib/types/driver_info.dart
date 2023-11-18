@@ -9,7 +9,7 @@ class DriverInfo {
   final String phoneNumber;
   final String avatarUrl;
   final String rating;
-  final ResolvedAddress currentLocation;
+  ResolvedAddress currentLocation;
 
   DriverInfo(
     this.id,

@@ -24,7 +24,6 @@ class AssetLoaderProvider with ChangeNotifier {
   BitmapDescriptor? _markerIconTaxi;
 
   Future<void> loadAssets() async {
-    //TODO: a temporary hack, device pixel ratio does not work on some devices. to be fixed later
     final imgPlatform = !kIsWeb && Platform.isAndroid ? "l" : "s";
     _markerIconFrom = await BitmapDescriptor.fromAssetImage(
         const ImageConfiguration(devicePixelRatio: 1),

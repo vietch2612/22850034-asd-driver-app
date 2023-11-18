@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:customer_app/providers/active_trip.dart';
 import 'package:customer_app/types/resolved_address.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_webservice/directions.dart' as dir;
 import 'package:customer_app/api/google_api.dart';
 import 'package:google_maps_webservice/places.dart';
+
+const double thresholdDistance = 20;
 
 class MapHelper {
   static Future<Polyline> getPolyline(
@@ -56,26 +60,45 @@ class MapHelper {
     );
   }
 
-  static void addMarker({
-    required GoogleMapController controller,
-    required LatLng position,
-    required String markerId,
-    required BitmapDescriptor icon,
-  }) {
-    final Marker marker = Marker(
-      markerId: MarkerId(markerId),
-      position: position,
-      icon: icon,
-    );
-
-    // controller.addMarker(marker);
-  }
-
   static Future<ResolvedAddress> getCurrentLocation() async {
     final cp = await Geolocator.getCurrentPosition();
     return ResolvedAddress(
         location: Location(lat: cp.latitude, lng: cp.longitude),
         mainText: "mainText",
         secondaryText: "secondaryText");
+  }
+
+  static double calculateHaversineDistance(
+    Location from,
+    Location to,
+  ) {
+    const double earthRadius = 6371.0; // Earth's radius in kilometers
+
+    double degreesToRadians(double degrees) {
+      return degrees * (pi / 180.0);
+    }
+
+    double dLat = degreesToRadians(to.lat - from.lat);
+    double dLng = degreesToRadians(to.lng - from.lng);
+
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(degreesToRadians(from.lat)) *
+            cos(degreesToRadians(to.lat)) *
+            sin(dLng / 2) *
+            sin(dLng / 2);
+
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  static bool areAddressesClose(ResolvedAddress from, ResolvedAddress to,
+      {double thresholdDistance = thresholdDistance}) {
+    double distance = calculateHaversineDistance(
+      from.location,
+      to.location,
+    );
+
+    return distance <= thresholdDistance;
   }
 }

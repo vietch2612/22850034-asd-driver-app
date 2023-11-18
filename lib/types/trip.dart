@@ -4,7 +4,6 @@ import 'package:customer_app/types/customer_info.dart';
 import 'package:customer_app/types/driver_info.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_maps_webservice/directions.dart' as dir;
 import 'package:google_maps_webservice/places.dart';
 
 import 'resolved_address.dart';
@@ -107,15 +106,35 @@ class TripDataEntity {
             json['mapLatLngBounds']['southwest']['lng'],
           ),
         ),
-        cameraPosition: CameraPosition(
-          target: LatLng(
-            json['cameraPosition']['target']['lat'],
-            json['cameraPosition']['target']['lng'],
-          ),
-          zoom: json['cameraPosition']['zoom'],
-        ),
         driverInfo: null,
         customerInfo: customerInfo,
         fare: json['fare']);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'tripId': tripId,
+      'from': {
+        'location': {
+          'lat': from.location.lat,
+          'lng': from.location.lng,
+        },
+        'mainText': from.mainText,
+        'secondaryText': from.secondaryText,
+      },
+      'to': {
+        'location': {
+          'lat': to.location.lat,
+          'lng': to.location.lng,
+        },
+        'mainText': to.mainText,
+        'secondaryText': to.secondaryText,
+      },
+      'distanceMeters': distanceMeters,
+      'distanceText': distanceText,
+      'status': status.toString().split('.').last,
+      'fare': fare,
+      'customer': customerInfo.toJson(),
+    };
   }
 }

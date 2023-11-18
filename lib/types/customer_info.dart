@@ -32,4 +32,18 @@ class CustomerInfo {
       ),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'phoneNumber': phoneNumber,
+      'avatarUrl': avatarUrl,
+      'currentLocation': {
+        'latitude': currentLocation.location.lat,
+        'longitude': currentLocation.location.lng,
+        'address': currentLocation.mainText,
+      },
+    };
+  }
 }

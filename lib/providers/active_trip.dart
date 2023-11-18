@@ -16,6 +16,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final backendHost = dotenv.env['BACKEND_HOST'];
+
 var logger = Logger(
   printer: PrettyPrinter(
       methodCount: 0, // Number of method calls to be displayed
@@ -63,35 +64,6 @@ class TripProvider with ChangeNotifier {
     /** The server has received the request */
     socket.on('finding_driver', (data) {
       logger.i('[$data] The server has received! Finding driver!');
-      notifyListeners();
-    });
-
-    /** Found a driver */
-    socket.on('allocated', (data) {
-      logger.i('[$tripId] The server has received! Finding driver!');
-      setTripStatus(ExTripStatus.allocated);
-
-      final DriverInfo driverInfo = DriverInfo.fromJson(data);
-
-      activeTrip?.driverInfo = driverInfo;
-
-      updateMapPoyline(activeTrip!.from, driverInfo.currentLocation);
-      taxiMarkerLatLng = LatLng(driverInfo.currentLocation.location.lat,
-          driverInfo.currentLocation.location.lng);
-
-      mapViewBoundsCallback?.call(
-        taxiMarkerLatLng!,
-        activeTrip!.from.toLatLng,
-      );
-
-      notifyListeners();
-    });
-
-    /** The driver has arrived at the passenger location */
-    socket.on('arrived', (data) {
-      logger.i('[$tripId] Driver has arrived!');
-      setTripStatus(ExTripStatus.arrived);
-
       notifyListeners();
     });
 
@@ -184,7 +156,6 @@ class TripProvider with ChangeNotifier {
     activeTrip = trip;
     setTripStatus(ExTripStatus.allocated);
     updateMapPoyline(await MapHelper.getCurrentLocation(), activeTrip!.from);
-    notifyListeners();
 
     // TODO
     // openSocketForNewTrip(trip);

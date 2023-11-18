@@ -1,11 +1,10 @@
 // 22850034 ASD Customer App Flutter
 
 import 'dart:math';
-import 'package:customer_app/api/backend_api.dart';
 import 'package:customer_app/servivces/formatter.dart';
+import 'package:customer_app/servivces/map_service.dart';
 import 'package:customer_app/types/driver_info.dart';
 import 'package:flutter/foundation.dart';
-import 'package:customer_app/api/google_api.dart';
 import 'package:customer_app/types/resolved_address.dart';
 import 'package:customer_app/types/trip.dart';
 import 'package:customer_app/ui/address_search.dart';
@@ -25,6 +24,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../api/google_api.dart';
 import '../types/customer_info.dart';
 
 final backendHost = dotenv.env['BACKEND_HOST'];
@@ -41,15 +41,18 @@ class NewTrip extends StatefulWidget {
 }
 
 class _NewTripState extends State<NewTrip> {
-  LatLngBounds? cameraViewportLatLngBounds;
-
+  late io.Socket socket;
+  late Timer locationUpdateTimer;
   TripDataEntity? tripDataEntity;
+
+  LatLngBounds? cameraViewportLatLngBounds;
 
   ResolvedAddress? from;
   ResolvedAddress? to;
 
   bool started = false;
-  DriverInfo? driverInfo;
+  // TODO
+  DriverInfo driverInfo = DriverInfo.getDummy();
 
   Polyline? tripPolyline;
   int tripDistanceMeters = 0;
@@ -58,7 +61,7 @@ class _NewTripState extends State<NewTrip> {
   String tripFareText = '';
 
   void openSocketForNewTrip() {
-    final socket = io.io('$backendHost', <String, dynamic>{
+    socket = io.io('$backendHost', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': true,
     });
@@ -73,23 +76,13 @@ class _NewTripState extends State<NewTrip> {
     /** Got a trip */
     socket.on('available_trip', (data) {
       logger.i('We got a new trip!');
-      logger.i(data);
 
       tripDataEntity = TripDataEntity.fromJson(data);
       driverInfo = DriverInfo.getDummy();
-      from = tripDataEntity!.from;
-      to = tripDataEntity!.to;
       tripFare = tripDataEntity!.fare;
 
-      // recalcRoute();
       showNewTripPopup(tripDataEntity!);
     });
-
-    socket.on('message', (data) {
-      logger.i('Received message: $data');
-    });
-
-    socket.on('disconnect', (_) {});
   }
 
   Future<void> recalcRoute() async {
@@ -200,7 +193,7 @@ class _NewTripState extends State<NewTrip> {
     const double deltaLatLngPointBound = 0.0015;
     double minx = 180, miny = 180, maxx = -180, maxy = -180;
 
-    if (from!.latitude == to!.latitude && from!.longitude == to!.longitude) {
+    if (from!.latitude == to!.latitude && from.longitude == to.longitude) {
       double lat = from.latitude;
       double lng = from.longitude;
       minx = lng - deltaLatLngPointBound;
@@ -295,6 +288,8 @@ class _NewTripState extends State<NewTrip> {
   }
 
   void waitForTrip(BuildContext context) async {
+    driverInfo.currentLocation = await MapHelper.getCurrentLocation();
+
     setState(() {
       logger.i("Start looking for a trip");
       started = true;
@@ -311,23 +306,129 @@ class _NewTripState extends State<NewTrip> {
 
   void startNewTrip(BuildContext context, CustomerInfo customerInfo,
       TripDataEntity trip) async {
+    from = await MapHelper.getCurrentLocation();
+    to = trip.from;
+    trip.status = ExTripStatus.allocated;
     await recalcRoute();
     adjustMapViewBounds();
+
+    driverInfo!.currentLocation = from!;
+    tripDataEntity!.driverInfo = driverInfo;
+
+    socket.emit("accept_trip", tripDataEntity!.toJson());
+
     if (mounted) setState(() {});
+    setState(() {});
+  }
 
-    final newTrip = TripDataEntity(
-        from: from!,
-        to: to!,
-        polyline: tripPolyline!,
-        distanceMeters: tripDistanceMeters,
-        distanceText: tripDistanceText,
-        mapLatLngBounds: _mapCameraViewBounds!,
-        cameraPosition: _latestCameraPosition,
-        customerInfo: customerInfo,
-        fare: tripFare);
+  void cancelTrip() async {
+    from = null;
+    to = null;
+    tripDataEntity = null;
 
-    final trip = TripProvider.of(context, listen: false);
-    trip.activateTrip(newTrip);
+    socket.disconnect();
+  }
+
+  void setArrived() async {
+    tripDataEntity!.status = ExTripStatus.driving;
+    socket.emit('driving', tripDataEntity!.toJson());
+    from = await MapHelper.getCurrentLocation();
+    to = tripDataEntity!.to;
+    await recalcRoute();
+    adjustMapViewBounds();
+
+    if (mounted) setState(() {});
+    setState(() {});
+
+    startLocationUpdates();
+    logger.i("Trip started!");
+  }
+
+  void completeTrip() async {
+    from = null;
+    to = null;
+    tripDataEntity = null;
+
+    stopLocationUpdates();
+    logger.i("Trip completed!");
+  }
+
+  void sendLocationUpdate() async {
+    driverInfo?.currentLocation = await MapHelper.getCurrentLocation();
+    tripDataEntity?.driverInfo = driverInfo;
+    socket.emit("location_udpate", tripDataEntity?.toJson());
+
+    await recalcRoute();
+    adjustMapViewBounds();
+
+    if (mounted) setState(() {});
+    setState(() {});
+  }
+
+  void startLocationUpdates() {
+    // Schedule the location update task every 10 seconds
+    locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      sendLocationUpdate();
+    });
+  }
+
+  void stopLocationUpdates() {
+    // Cancel the location update timer
+    locationUpdateTimer.cancel();
+  }
+
+  String mainButtonTextHandler() {
+    if (started) {
+      if (tripDataEntity == null) {
+        return "Cancel";
+      } else {
+        if (MapHelper.areAddressesClose(
+            driverInfo!.currentLocation, tripDataEntity!.to)) {
+          return "Complete";
+        }
+        return "Start trip";
+      }
+    } else {
+      return "Ready";
+    }
+  }
+
+  void mainButtonActionHandler() {
+    if (started) {
+      if (tripDataEntity == null) {
+        cancelWait(context);
+      } else {
+        if (MapHelper.areAddressesClose(
+            driverInfo!.currentLocation, tripDataEntity!.to)) {
+          logger.i("Close!!!");
+          completeTrip();
+        } else {
+          setArrived();
+        }
+      }
+    } else {
+      waitForTrip(context);
+    }
+  }
+
+  String mainStatusHandler() {
+    if (started) {
+      if (tripDataEntity == null) {
+        return "Looking for a trip";
+      } else {
+        return "On a trip!";
+      }
+    } else {
+      return "Waiting for a trip";
+    }
+  }
+
+  @override
+  void dispose() {
+    // Dispose of the timer when the widget is disposed
+    locationUpdateTimer.cancel();
+
+    super.dispose();
   }
 
   void showNewTripPopup(TripDataEntity dataEntity) {
@@ -368,12 +469,14 @@ class _NewTripState extends State<NewTrip> {
                 // From and To Addresses
                 Text(
                   'From: ${dataEntity.from.mainText}',
-                  style: const TextStyle(fontSize: 12.0),
+                  style: const TextStyle(fontSize: 11.0),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8.0),
                 Text(
                   'To: ${dataEntity.to.mainText}',
-                  style: const TextStyle(fontSize: 12.0),
+                  style: const TextStyle(fontSize: 11.0),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 16.0),
                 // Length
@@ -388,7 +491,7 @@ class _NewTripState extends State<NewTrip> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         // Handle Select button click
                         Navigator.of(context).pop();
                         startNewTrip(context, tripDataEntity!.customerInfo,
@@ -459,20 +562,19 @@ class _NewTripState extends State<NewTrip> {
               zoomControlsEnabled: true,
               scrollGesturesEnabled: true,
               markers: {
-                if (from != null &&
-                    AssetLoaderProvider.of(context).markerIconFrom != null)
-                  Marker(
-                    icon: AssetLoaderProvider.of(context).markerIconFrom!,
-                    position: from!.toLatLng,
-                    markerId: MarkerId(
-                        'marker-From${kIsWeb ? DateTime.now().toIso8601String() : ""}'), // Flutter Google Maps for Web does not update marker position properly
-                  ),
                 if (to != null)
                   Marker(
                     icon: AssetLoaderProvider.of(context).markerIconTo,
                     position: to!.toLatLng,
                     markerId: MarkerId(
                         'marker-To${kIsWeb ? DateTime.now().toIso8601String() : ""}'),
+                  ),
+                if (from != null)
+                  Marker(
+                    icon: AssetLoaderProvider.of(context).markerIconTaxi,
+                    position: from!.toLatLng,
+                    markerId: MarkerId(
+                        'marker-Taxi${kIsWeb ? DateTime.now().toIso8601String() : ""}'),
                   ),
               },
               polylines: tripPolyline != null
@@ -520,77 +622,65 @@ class _NewTripState extends State<NewTrip> {
             child: Column(children: [
               if (to != null)
                 ListTile(
-                  leading: const Icon(Icons.person_pin_circle),
-                  title: Text(
-                    from?.mainText ?? "",
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Row(
-                    children: [
-                      const Text(
-                        'From',
-                        style: TextStyle(color: Colors.green),
-                      ),
-                      Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.color ??
-                                  Colors.white)),
-                      Text(from?.secondaryText ?? "",
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12))
-                    ],
-                  ),
-                  onTap: () => autocompleteAddress(
-                      true,
-                      LocationProvider.of(context, listen: false)
-                          .currentAddress!
-                          .location),
-                ),
+                    leading: const Icon(Icons.person_pin_circle),
+                    title: Text(
+                      tripDataEntity?.from.mainText ?? "",
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Row(
+                      children: [
+                        const Text(
+                          'From',
+                          style: TextStyle(color: Colors.green),
+                        ),
+                        Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 5),
+                            width: 3,
+                            height: 3,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.color ??
+                                    Colors.white)),
+                        Text(tripDataEntity?.from.secondaryText ?? "",
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 8))
+                      ],
+                    )),
               const SizedBox(
                 height: 4,
               ),
               if (to != null)
                 ListTile(
-                  leading: const Icon(Icons.location_on_outlined),
-                  title: Text(
-                    to!.mainText,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Row(
-                    children: [
-                      const Text(
-                        'To',
-                        style: TextStyle(color: Colors.green),
-                      ),
-                      Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.color ??
-                                  Colors.white)),
-                      Text(to!.secondaryText,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12))
-                    ],
-                  ),
-                  onTap: () => autocompleteAddress(
-                      false,
-                      LocationProvider.of(context, listen: false)
-                          .currentAddress!
-                          .location),
-                ),
+                    leading: const Icon(Icons.location_on_outlined),
+                    title: Text(
+                      tripDataEntity!.to.mainText,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Row(
+                      children: [
+                        const Text(
+                          'To',
+                          style: TextStyle(color: Colors.green),
+                        ),
+                        Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 5),
+                            width: 3,
+                            height: 3,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.color ??
+                                    Colors.white)),
+                        Text(tripDataEntity!.to.secondaryText,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 8))
+                      ],
+                    )),
               const Divider(height: 1),
               SizedBox(
                   height: 80,
@@ -634,7 +724,7 @@ class _NewTripState extends State<NewTrip> {
                                 to != null &&
                                 tripDistanceText.isNotEmpty)
                               Text(
-                                '$tripDistanceText, Fare: $tripFareText',
+                                mainStatusHandler(),
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                           ],
@@ -648,16 +738,12 @@ class _NewTripState extends State<NewTrip> {
                                   started ? Colors.red : Colors.green,
                             ),
                             onPressed: () {
-                              if (started) {
-                                cancelWait(context);
-                              } else {
-                                waitForTrip(context);
-                              }
+                              mainButtonActionHandler();
                             },
                             child: Row(children: [
                               const Icon(Icons.taxi_alert_rounded),
                               const SizedBox(width: 10),
-                              Text(started ? 'Cancel' : 'Ready')
+                              Text(mainButtonTextHandler())
                             ])),
                       )
                     ],
