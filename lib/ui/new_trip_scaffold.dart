@@ -7,7 +7,6 @@ import 'package:customer_app/types/driver_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:customer_app/types/resolved_address.dart';
 import 'package:customer_app/types/trip.dart';
-import 'package:customer_app/ui/address_search.dart';
 import 'package:customer_app/providers/assets_loader.dart';
 import 'package:customer_app/providers/location.dart';
 import 'package:customer_app/providers/active_trip.dart';
@@ -28,7 +27,6 @@ import '../api/google_api.dart';
 import '../types/customer_info.dart';
 
 final backendHost = dotenv.env['BACKEND_HOST'];
-
 final logger = Logger();
 
 class NewTrip extends StatefulWidget {
@@ -67,17 +65,57 @@ class _NewTripState extends State<NewTrip> {
     });
 
     /** Start looking for a Trip */
-    socket.on('connect', (_) {
-      socket.emit('looking', {});
+    socket.on('connect', (_) async {
+      driverInfo.currentLocation = await MapHelper.getCurrentLocation();
+      socket.emit('driver_active', driverInfo.toJson());
 
       logger.i('Looking for a trip!');
     });
 
     /** Got a trip */
-    socket.on('available_trip', (data) {
-      logger.i('We got a new trip!');
+    socket.on('trip_driver_allocate', (data) async {
+      logger.i('We got a new trip!', data);
 
-      tripDataEntity = TripDataEntity.fromJson(data);
+      CustomerInfo customerInfo = CustomerInfo.fromJson(data['Customer']);
+      ResolvedAddress from = ResolvedAddress(
+        location: Location(
+          lat: data['pickupLocationLat'],
+          lng: data['pickupLocationLong'],
+        ),
+        mainText: data['pickupLocation'],
+        secondaryText: data['pickupLocation'],
+      );
+
+      ResolvedAddress to = ResolvedAddress(
+        location: Location(
+          lat: data['dropoffLocationLat'],
+          lng: data['dropoffLocationLong'],
+        ),
+        mainText: data['dropoffLocation'],
+        secondaryText: data['dropoffLocation'],
+      );
+
+      // Asynchronously get Polyline
+      Polyline polyline = await MapHelper.getPolyline(from, to);
+
+      // Extract other trip details
+      tripDataEntity = TripDataEntity(
+        tripId: data['id'],
+        from: from,
+        to: to,
+        polyline: polyline,
+        distanceMeters: data['distance'],
+        distanceText: data['distance'].toString(),
+        status: ExTripStatus.submitted,
+        driverInfo: null,
+        customerInfo: customerInfo,
+        mapLatLngBounds: LatLngBounds(
+          southwest: const LatLng(37.7749, -122.4194),
+          northeast: const LatLng(37.8049, -122.3894),
+        ),
+        fare: data['fare'],
+      );
+
       driverInfo = DriverInfo.getDummy();
       tripFare = tripDataEntity!.fare;
 
@@ -186,62 +224,6 @@ class _NewTripState extends State<NewTrip> {
     }
   }
 
-  void adjustMapViewBoundsByLocation(LatLng from, LatLng to) {
-    if (!mounted) return;
-
-    //0.001 ~= 100 m
-    const double deltaLatLngPointBound = 0.0015;
-    double minx = 180, miny = 180, maxx = -180, maxy = -180;
-
-    if (from!.latitude == to!.latitude && from.longitude == to.longitude) {
-      double lat = from.latitude;
-      double lng = from.longitude;
-      minx = lng - deltaLatLngPointBound;
-      maxx = lng + deltaLatLngPointBound;
-      miny = lat - deltaLatLngPointBound;
-      maxy = lat + deltaLatLngPointBound;
-
-      if (minx < -180) minx = -180;
-      if (miny < -90) miny = -90;
-      if (maxx > 180) minx = 180;
-      if (maxy > 90) maxy = 90;
-    } else {
-      for (var p in [
-        from,
-        to,
-        if (tripPolyline != null) ...tripPolyline!.points
-      ]) {
-        minx = min(minx, p.longitude);
-        maxx = max(maxx, p.longitude);
-
-        miny = min(miny, p.latitude);
-        maxy = max(maxy, p.latitude);
-      }
-    }
-
-    final newCameraViewBounds = LatLngBounds(
-      northeast: LatLng(maxy, maxx),
-      southwest: LatLng(miny, minx),
-    );
-    if (_mapCameraViewBounds == null ||
-        _mapCameraViewBounds != newCameraViewBounds) {
-      _mapCameraViewBounds = newCameraViewBounds;
-
-      if (mapControllerCompleter.isCompleted == false) return;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _mapCameraViewBounds == null) return;
-
-        mapController!.animateCamera(
-          CameraUpdate.newLatLngBounds(
-            _mapCameraViewBounds!,
-            30,
-          ),
-        );
-      });
-    }
-  }
-
   bool isDarkMapThemeSelected = false;
   List<Marker> mapRouteMarkers = List.empty(growable: true);
   List<Marker> avaliableTaxiMarkers = List.empty(growable: true);
@@ -249,43 +231,6 @@ class _NewTripState extends State<NewTrip> {
   final mapControllerCompleter = Completer<GoogleMapController>();
   GoogleMapController? mapController;
   CameraPosition? _latestCameraPosition;
-
-  void autocompleteAddress(bool isFromAdr, Location searchLocation) async {
-    final Prediction? p = await showSearch<Prediction?>(
-        context: context,
-        delegate: AddressSearch(searchLocation: searchLocation),
-        query: (isFromAdr ? from : to)?.mainText ?? '');
-    if (p != null) {
-      PlacesDetailsResponse placeDetails = await apiGooglePlaces
-          .getDetailsByPlaceId(p.placeId!, fields: [
-        "address_component",
-        "geometry",
-        "type",
-        "adr_address",
-        "formatted_address"
-      ]);
-
-      if (!mounted) return;
-
-      final placeAddress = ResolvedAddress(
-          location: placeDetails.result.geometry!.location,
-          mainText: p.structuredFormatting?.mainText ??
-              placeDetails.result.addressComponents.join(','),
-          secondaryText: p.structuredFormatting?.secondaryText ?? '');
-
-      setState(() {
-        if (isFromAdr) {
-          from = placeAddress;
-        } else {
-          to = placeAddress;
-        }
-      });
-
-      await recalcRoute();
-      adjustMapViewBounds();
-      if (mounted) setState(() {});
-    }
-  }
 
   void waitForTrip(BuildContext context) async {
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
@@ -306,19 +251,23 @@ class _NewTripState extends State<NewTrip> {
 
   void startNewTrip(BuildContext context, CustomerInfo customerInfo,
       TripDataEntity trip) async {
+    tripDataEntity = trip;
     from = await MapHelper.getCurrentLocation();
     to = trip.from;
     trip.status = ExTripStatus.allocated;
     await recalcRoute();
     adjustMapViewBounds();
 
-    driverInfo!.currentLocation = from!;
+    driverInfo.currentLocation = from!;
     tripDataEntity!.driverInfo = driverInfo;
 
-    socket.emit("accept_trip", tripDataEntity!.toJson());
+    logger.i(tripDataEntity!.toJson());
+    socket.emit("trip_driver_accept", tripDataEntity!.toJson());
 
     if (mounted) setState(() {});
     setState(() {});
+
+    startLocationUpdates();
   }
 
   void cancelTrip() async {
@@ -329,9 +278,9 @@ class _NewTripState extends State<NewTrip> {
     socket.disconnect();
   }
 
-  void setArrived() async {
+  void startTrip() async {
     tripDataEntity!.status = ExTripStatus.driving;
-    socket.emit('driving', tripDataEntity!.toJson());
+    socket.emit('trip_driver_driving', tripDataEntity!.toJson());
     from = await MapHelper.getCurrentLocation();
     to = tripDataEntity!.to;
     await recalcRoute();
@@ -339,9 +288,6 @@ class _NewTripState extends State<NewTrip> {
 
     if (mounted) setState(() {});
     setState(() {});
-
-    startLocationUpdates();
-    logger.i("Trip started!");
   }
 
   void completeTrip() async {
@@ -354,20 +300,22 @@ class _NewTripState extends State<NewTrip> {
   }
 
   void sendLocationUpdate() async {
-    driverInfo?.currentLocation = await MapHelper.getCurrentLocation();
+    logger.i("Sending location update!");
+    driverInfo.currentLocation = await MapHelper.getCurrentLocation();
     tripDataEntity?.driverInfo = driverInfo;
-    socket.emit("location_udpate", tripDataEntity?.toJson());
+    from = driverInfo.currentLocation;
+    socket.emit("location_update", tripDataEntity?.toJson());
 
     await recalcRoute();
     adjustMapViewBounds();
 
-    if (mounted) setState(() {});
     setState(() {});
   }
 
-  void startLocationUpdates() {
+  void startLocationUpdates() async {
     // Schedule the location update task every 10 seconds
-    locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    locationUpdateTimer =
+        Timer.periodic(const Duration(seconds: 20), (timer) async {
       sendLocationUpdate();
     });
   }
@@ -378,19 +326,21 @@ class _NewTripState extends State<NewTrip> {
   }
 
   String mainButtonTextHandler() {
-    if (started) {
-      if (tripDataEntity == null) {
-        return "Cancel";
-      } else {
-        if (MapHelper.areAddressesClose(
-            driverInfo!.currentLocation, tripDataEntity!.to)) {
-          return "Complete";
-        }
-        return "Start trip";
+    if (tripDataEntity != null) {
+      switch (tripDataEntity!.status) {
+        case ExTripStatus.allocated:
+          return "Bắt đầù chuyến đi";
+        case ExTripStatus.driving:
+          return "Hoàn thành";
+        default:
       }
+    } else if (started) {
+      return "Huỷ";
     } else {
-      return "Ready";
+      return "Bắt đầu";
     }
+
+    return "";
   }
 
   void mainButtonActionHandler() {
@@ -399,11 +349,13 @@ class _NewTripState extends State<NewTrip> {
         cancelWait(context);
       } else {
         if (MapHelper.areAddressesClose(
-            driverInfo!.currentLocation, tripDataEntity!.to)) {
-          logger.i("Close!!!");
+            driverInfo.currentLocation, tripDataEntity!.to)) {
+          logger.i(driverInfo.currentLocation.location);
+          logger.i(tripDataEntity!.to.location);
+          logger.i("Complete trip pressed!!!");
           completeTrip();
         } else {
-          setArrived();
+          startTrip();
         }
       }
     } else {
@@ -414,9 +366,9 @@ class _NewTripState extends State<NewTrip> {
   String mainStatusHandler() {
     if (started) {
       if (tripDataEntity == null) {
-        return "Looking for a trip";
+        return "Đang tìm kiếm";
       } else {
-        return "On a trip!";
+        return "Đang trên chuyến";
       }
     } else {
       return "Waiting for a trip";
@@ -498,7 +450,7 @@ class _NewTripState extends State<NewTrip> {
                             tripDataEntity!);
                         // Close the popup
                       },
-                      child: const Text('Accept'),
+                      child: const Text('Đồng ý'),
                     ),
                     const SizedBox(width: 16.0),
                     OutlinedButton(
@@ -506,7 +458,7 @@ class _NewTripState extends State<NewTrip> {
                         // Handle Cancel button click
                         Navigator.of(context).pop(); // Close the popup
                       },
-                      child: const Text('Decline'),
+                      child: const Text('Không đồng ý'),
                     ),
                   ],
                 ),
@@ -593,15 +545,6 @@ class _NewTripState extends State<NewTrip> {
                             : googleMapDefaultStyle);
                     isDarkMapThemeSelected = isDark;
                   }
-                  widget.tripProvider.setMapViewBoundsCallback(
-                    (LatLng driverLocation, LatLng passengerLocation) {
-                      // Call the adjustMapViewBounds method with driver and passenger locations
-                      adjustMapViewBoundsByLocation(
-                          driverLocation, passengerLocation);
-
-                      logger.d("mapViewBounds");
-                    },
-                  );
                   setState(() {});
                 }
               },
@@ -704,8 +647,8 @@ class _NewTripState extends State<NewTrip> {
                                       Theme.of(context).colorScheme.secondary,
                                   child: Text(
                                     started
-                                        ? 'Looking for a trip...'
-                                        : 'Please confirm that you are ready for a trip!',
+                                        ? 'Đang tìm kiếm...'
+                                        : 'Bấm bắt đầu để tìm chuyến',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium

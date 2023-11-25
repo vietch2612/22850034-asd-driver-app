@@ -1,0 +1,28 @@
+#!/bin/bash
+xcrun simctl location A4BB52CA-B3D3-4260-9A4D-0322BAC8C4BB set 10.8405215,106.8350387
+echo "moving to 10.8405215,106.8350387"
+sleep 20
+
+xcrun simctl location A4BB52CA-B3D3-4260-9A4D-0322BAC8C4BB set 10.8422245,106.8362222
+echo "moving to 10.8422245,106.8362222"
+sleep 20
+
+
+xcrun simctl location A4BB52CA-B3D3-4260-9A4D-0322BAC8C4BB set 10.8397312,106.8336175
+echo "moving to 10.8397312,106.8336175"
+sleep 20
+
+
+xcrun simctl location A4BB52CA-B3D3-4260-9A4D-0322BAC8C4BB set 10.8387871,106.8342909
+echo "moving to 10.8397312,106.8336175"
+sleep 20
+
+
+xcrun simctl location A4BB52CA-B3D3-4260-9A4D-0322BAC8C4BB set 10.8387916,106.8361733
+echo "moving to 10.8387916,106.8361733"
+sleep 20
+
+
+xcrun simctl location A4BB52CA-B3D3-4260-9A4D-0322BAC8C4BB set 10.837831,106.8373498
+echo "moving to 10.837831,106.8373498"
+sleep 20

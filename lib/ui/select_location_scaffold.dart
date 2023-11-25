@@ -6,7 +6,6 @@ import 'package:customer_app/providers/location.dart';
 import 'package:customer_app/ui/common.dart';
 
 import 'package:google_maps_webservice/places.dart';
-import 'package:lottie/lottie.dart';
 
 class LocationScaffold extends StatelessWidget {
   LocationScaffold({Key? key}) : super(key: key);
@@ -14,8 +13,7 @@ class LocationScaffold extends StatelessWidget {
   final homeAddress = ResolvedAddress(
       location: Location(lat: 10.8428625, lng: 106.8346228),
       mainText: "Vinhomes Grand Park - Origami S7.01",
-      secondaryText:
-          "RRVP+4VW, Long Bình, Hồ Chí Minh, Thành phố Hồ Chí Minh, Vietnam");
+      secondaryText: "Long Bình, Hồ Chí Minh, Thành phố Hồ Chí Minh, VN");
 
   @override
   Widget build(BuildContext context) {
@@ -29,25 +27,24 @@ class LocationScaffold extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 64, top: 8),
               child: Text(
-                "HCMUS CAB",
+                "Driver",
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
             ),
-            Expanded(child: Lottie.asset('assets/lottie/taxi-animation.json')),
+            Expanded(child: Image.asset('assets/lottie/logo.png')),
             if (pendingDetermineLocation) ...[
               const LinearProgressIndicator(),
-              const Text('Finding your location...'),
+              const Text('Đang tìm kiếm toạ độ'),
             ],
             if (!pendingDetermineLocation) ...[
               Text(
-                'Welcome! Driver!',
+                'Chúc tài xế của HCMUBCab ngày mới tốt lành.',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               ListTile(
                 leading: const Icon(Icons.gps_fixed),
-                title: const Text(
-                    'Please share your current location to start a Ride!'),
+                title: const Text('Vui lòng chia sẻ vị trí để bắt đầu.'),
                 onTap: () => LocationProvider.of(context, listen: false)
                     .determineCurrentLocation(),
               )

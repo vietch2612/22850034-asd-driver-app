@@ -1,4 +1,4 @@
-package com.flutterbase.flutterbasetaxi
+package com.hcmus.hcmuscabdriver
 
 import io.flutter.embedding.android.FlutterActivity
 

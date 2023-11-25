@@ -30,12 +30,12 @@ Widget buildAppScaffold(BuildContext context, Widget child,
         padding: const EdgeInsets.only(top: 8.0),
         child: FloatingActionButton(
           mouseCursor: SystemMouseCursors.click,
-          child: const Icon(
-            Icons.menu,
-          ),
-
           onPressed: () =>
               Scaffold.of(context).openDrawer(), // <-- Opens drawer.
+          backgroundColor: Colors.blueAccent,
+          child: const Icon(
+            Icons.menu_open,
+          ),
         ),
       );
     }),

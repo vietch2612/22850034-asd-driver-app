@@ -9,7 +9,7 @@ import 'package:google_maps_webservice/directions.dart' as dir;
 import 'package:customer_app/api/google_api.dart';
 import 'package:google_maps_webservice/places.dart';
 
-const double thresholdDistance = 20;
+const double thresholdDistance = 0.05;
 
 class MapHelper {
   static Future<Polyline> getPolyline(
@@ -68,10 +68,7 @@ class MapHelper {
         secondaryText: "secondaryText");
   }
 
-  static double calculateHaversineDistance(
-    Location from,
-    Location to,
-  ) {
+  static double calculateHaversineDistance(Location from, Location to) {
     const double earthRadius = 6371.0; // Earth's radius in kilometers
 
     double degreesToRadians(double degrees) {
@@ -98,6 +95,8 @@ class MapHelper {
       from.location,
       to.location,
     );
+
+    logger.i("distance: ", distance);
 
     return distance <= thresholdDistance;
   }
