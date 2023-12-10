@@ -64,12 +64,6 @@ class _NewTripState extends State<NewTrip> {
       'transports': ['websocket'],
       'autoConnect': true,
     });
-  }
-
-  void openSocketForNewTrip() {
-    if (!socket.connected) {
-      initSocket();
-    }
 
     socket.on('connect', (_) async {});
 
@@ -235,6 +229,7 @@ class _NewTripState extends State<NewTrip> {
 
   void startWait() async {
     initSocket();
+
     logger.i("DRIVER_ACTIVE: Start looking for a trip!");
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
     socket.emit('driver_active', driverInfo.toJson());
@@ -277,6 +272,15 @@ class _NewTripState extends State<NewTrip> {
     setState(() {});
 
     startLocationUpdates();
+  }
+
+  void declineTrip() async {
+    tripDataEntity!.driverInfo = driverInfo;
+    socket.emit("trip_driver_decline", tripDataEntity!.toJson());
+
+    tripDataEntity = null;
+    from = null;
+    to = null;
   }
 
   void cancelTrip() async {
@@ -462,7 +466,8 @@ class _NewTripState extends State<NewTrip> {
                     OutlinedButton(
                       onPressed: () {
                         // Handle Cancel button click
-                        Navigator.of(context).pop(); // Close the popup
+                        Navigator.of(context).pop();
+                        declineTrip(); // Close the popup
                       },
                       child: const Text('Không đồng ý'),
                     ),

@@ -81,12 +81,10 @@ class DriverInfo {
       'id': id,
       'avatarUrl': avatarUrl,
       'rating': rating,
-      'DriverLocations': [
-        {
-          'lat': currentLocation.location.lat,
-          'long': currentLocation.location.lng,
-        },
-      ],
+      'DriverLocations': {
+        'lat': currentLocation.location.lat,
+        'long': currentLocation.location.lng,
+      },
     };
   }
 }
