@@ -51,7 +51,6 @@ class _NewTripState extends State<NewTrip> {
   ResolvedAddress? to;
 
   bool started = false;
-  // TODO
   DriverInfo driverInfo = globalDriver!;
 
   Polyline? tripPolyline;
@@ -60,19 +59,19 @@ class _NewTripState extends State<NewTrip> {
   int tripFare = 0;
   String tripFareText = '';
 
-  void openSocketForNewTrip() {
+  void initSocket() {
     socket = io.io('$backendHost', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': true,
     });
+  }
 
-    /** Start looking for a Trip */
-    socket.on('connect', (_) async {
-      driverInfo.currentLocation = await MapHelper.getCurrentLocation();
-      socket.emit('driver_active', driverInfo.toJson());
+  void openSocketForNewTrip() {
+    if (!socket.connected) {
+      initSocket();
+    }
 
-      logger.i('Looking for a trip!');
-    });
+    socket.on('connect', (_) async {});
 
     /** Got a trip */
     socket.on('trip_driver_allocate', (data) async {
@@ -234,19 +233,27 @@ class _NewTripState extends State<NewTrip> {
   GoogleMapController? mapController;
   CameraPosition? _latestCameraPosition;
 
-  void waitForTrip(BuildContext context) async {
+  void startWait() async {
+    initSocket();
+    logger.i("DRIVER_ACTIVE: Start looking for a trip!");
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
+    socket.emit('driver_active', driverInfo.toJson());
 
     setState(() {
-      logger.i("Start looking for a trip");
       started = true;
-      openSocketForNewTrip();
     });
   }
 
-  void cancelWait(BuildContext context) async {
+  void cancelWait() async {
+    if (socket.disconnected) {
+      logger.i("Socket is disconnected. Reconnecting...");
+      initSocket();
+    }
+
+    logger.i("DRIVER_CANCEL: Cancel waiting for a trip!");
+    socket.emit("driver_cancel", driverInfo.toJson());
+
     setState(() {
-      logger.i("Cancel looking for a trip");
       started = false;
     });
   }
@@ -348,20 +355,17 @@ class _NewTripState extends State<NewTrip> {
   void mainButtonActionHandler() {
     if (started) {
       if (tripDataEntity == null) {
-        cancelWait(context);
+        cancelWait();
       } else {
         if (MapHelper.areAddressesClose(
             driverInfo.currentLocation, tripDataEntity!.to)) {
-          logger.i(driverInfo.currentLocation.location);
-          logger.i(tripDataEntity!.to.location);
-          logger.i("Complete trip pressed!!!");
           completeTrip();
         } else {
           startTrip();
         }
       }
     } else {
-      waitForTrip(context);
+      startWait();
     }
   }
 
