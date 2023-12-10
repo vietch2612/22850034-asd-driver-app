@@ -1,6 +1,7 @@
 // 22850034 ASD Customer App Flutter
 
 import 'dart:math';
+import 'package:customer_app/global.dart';
 import 'package:customer_app/servivces/formatter.dart';
 import 'package:customer_app/servivces/map_service.dart';
 import 'package:customer_app/types/driver_info.dart';
@@ -19,6 +20,7 @@ import 'package:google_maps_webservice/directions.dart' as dir;
 import 'package:google_maps_webservice/places.dart';
 import 'package:logger/logger.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:customer_app/global.dart';
 
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -50,7 +52,7 @@ class _NewTripState extends State<NewTrip> {
 
   bool started = false;
   // TODO
-  DriverInfo driverInfo = DriverInfo.getDummy();
+  DriverInfo driverInfo = globalDriver!;
 
   Polyline? tripPolyline;
   int tripDistanceMeters = 0;
@@ -116,7 +118,7 @@ class _NewTripState extends State<NewTrip> {
         fare: data['fare'],
       );
 
-      driverInfo = DriverInfo.getDummy();
+      driverInfo = globalDriver!;
       tripFare = tripDataEntity!.fare;
 
       showNewTripPopup(tripDataEntity!);

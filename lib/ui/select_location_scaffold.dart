@@ -1,19 +1,12 @@
 // 22850034 ASD Customer App Flutter
 
+import 'package:customer_app/global.dart';
 import 'package:flutter/material.dart';
-import 'package:customer_app/types/resolved_address.dart';
 import 'package:customer_app/providers/location.dart';
 import 'package:customer_app/ui/common.dart';
 
-import 'package:google_maps_webservice/places.dart';
-
 class LocationScaffold extends StatelessWidget {
   LocationScaffold({Key? key}) : super(key: key);
-
-  final homeAddress = ResolvedAddress(
-      location: Location(lat: 10.8428625, lng: 106.8346228),
-      mainText: "Vinhomes Grand Park - Origami S7.01",
-      secondaryText: "Long Bình, Hồ Chí Minh, Thành phố Hồ Chí Minh, VN");
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +20,7 @@ class LocationScaffold extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 64, top: 8),
               child: Text(
-                "Driver",
+                "Xin chào ${globalDriver?.name ?? 'tài xế'}",
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
