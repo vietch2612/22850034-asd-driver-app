@@ -227,6 +227,43 @@ class _NewTripState extends State<NewTrip> {
   GoogleMapController? mapController;
   CameraPosition? _latestCameraPosition;
 
+  void _showTripSummaryPopup(
+      BuildContext context, TripDataEntity tripDataEntity) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Thông tin chuyến đi'),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('From: ${tripDataEntity.from.mainText}'),
+              Text('To: ${tripDataEntity.to.mainText}'),
+              Text('Distance: ${tripDataEntity.distanceText} meters'),
+              Text('Fare: ${tripDataEntity.fare} VND'),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).focusColor,
+              ),
+              child: const Text('Đồng ý'),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        );
+      },
+    );
+  }
+
   void startWait() async {
     initSocket();
 
@@ -304,11 +341,21 @@ class _NewTripState extends State<NewTrip> {
   }
 
   void completeTrip() async {
+    tripDataEntity!.status = ExTripStatus.completed;
+    socket.emit('trip_driver_completed', tripDataEntity!.toJson());
+    stopLocationUpdates();
+    _showTripSummaryPopup(context, tripDataEntity!);
+
     from = null;
     to = null;
     tripDataEntity = null;
 
-    stopLocationUpdates();
+    await recalcRoute();
+    adjustMapViewBounds();
+
+    if (mounted) setState(() {});
+    setState(() {});
+
     logger.i("Trip completed!");
   }
 
@@ -361,8 +408,7 @@ class _NewTripState extends State<NewTrip> {
       if (tripDataEntity == null) {
         cancelWait();
       } else {
-        if (MapHelper.areAddressesClose(
-            driverInfo.currentLocation, tripDataEntity!.to)) {
+        if (tripDataEntity!.status == ExTripStatus.driving) {
           completeTrip();
         } else {
           startTrip();

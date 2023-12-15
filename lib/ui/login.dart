@@ -30,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tài xế vui lòng đăng nhập'),
+        title: const Text('Tài xế vui lòng đăng nhập'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -39,21 +39,21 @@ class _LoginPageState extends State<LoginPage> {
           children: <Widget>[
             TextField(
               controller: _usernameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Số điện thoại',
                 icon: Icon(Icons.person),
               ),
             ),
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
             TextField(
               controller: _passwordController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Mật khẩu',
                 icon: Icon(Icons.lock),
               ),
               obscureText: true,
             ),
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
             ElevatedButton(
               onPressed: () async {
                 String username = _usernameController.text;
@@ -84,6 +84,7 @@ class _LoginPageState extends State<LoginPage> {
                     // Set the globalDriver
                     globalDriver = driver;
 
+                    // ignore: use_build_context_synchronously
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -118,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                   } else {
                     // Handle login failure
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text('Đăng nhập thất bại. Vui lòng thử lại.'),
                       ),
                     );
@@ -128,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
                   // Handle other errors
                 }
               },
-              child: Text('Đăng nhập'),
+              child: const Text('Đăng nhập'),
             ),
           ],
         ),
