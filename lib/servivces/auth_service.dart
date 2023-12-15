@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
-  final _baseUrl = dotenv.env['AUTH_HOST'];
+  final _baseUrl = dotenv.env['GATEWAY_HOST'];
 
   Future<Map<String, dynamic>> login(String username, String password) async {
     final response = await http.post(
@@ -13,12 +13,9 @@ class AuthService {
     );
 
     if (response.statusCode == 200) {
-      // If the server returns a 200 OK response, parse the token
       final Map<String, dynamic> data = json.decode(response.body);
       return data;
     } else {
-      // If the server did not return a 200 OK response,
-      // throw an exception.
       throw Exception('Failed to login');
     }
   }

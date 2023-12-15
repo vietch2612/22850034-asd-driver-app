@@ -64,10 +64,7 @@ class _LoginPageState extends State<LoginPage> {
                       await widget.authService.login(username, password);
 
                   if (user != null) {
-                    // Save the token
                     await widget.authService.saveToken(user['token']);
-
-                    // Navigate to the home page or any other desired page
 
                     DriverInfo driver = DriverInfo(
                       user['id'],
