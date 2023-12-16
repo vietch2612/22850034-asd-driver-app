@@ -20,7 +20,6 @@ import 'package:google_maps_webservice/directions.dart' as dir;
 import 'package:google_maps_webservice/places.dart';
 import 'package:logger/logger.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:customer_app/global.dart';
 
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -41,7 +40,7 @@ class NewTrip extends StatefulWidget {
 }
 
 class _NewTripState extends State<NewTrip> {
-  late io.Socket socket;
+  io.Socket? socket;
   late Timer locationUpdateTimer;
   TripDataEntity? tripDataEntity;
 
@@ -60,15 +59,15 @@ class _NewTripState extends State<NewTrip> {
   String tripFareText = '';
 
   void initSocket() {
-    socket = io.io('$backendHost', <String, dynamic>{
-      'transports': ['websocket'],
-      'autoConnect': true,
-    });
-
-    socket.on('connect', (_) async {});
+    if (socket == null || socket!.disconnected) {
+      socket = io.io('$backendHost', <String, dynamic>{
+        'transports': ['websocket'],
+        'autoConnect': true,
+      });
+    }
 
     /** Got a trip */
-    socket.on('trip_driver_allocate', (data) async {
+    socket!.on('trip_driver_allocate', (data) async {
       logger.i('We got a new trip!', data);
 
       CustomerInfo customerInfo = CustomerInfo.fromJson(data['Customer']);
@@ -269,7 +268,7 @@ class _NewTripState extends State<NewTrip> {
 
     logger.i("DRIVER_ACTIVE: Start looking for a trip!");
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
-    socket.emit('driver_active', driverInfo.toJson());
+    socket!.emit('driver_active', driverInfo.toJson());
 
     setState(() {
       started = true;
@@ -277,13 +276,12 @@ class _NewTripState extends State<NewTrip> {
   }
 
   void cancelWait() async {
-    if (socket.disconnected) {
+    if (socket!.disconnected) {
       logger.i("Socket is disconnected. Reconnecting...");
-      initSocket();
     }
 
     logger.i("DRIVER_CANCEL: Cancel waiting for a trip!");
-    socket.emit("driver_cancel", driverInfo.toJson());
+    socket!.emit("driver_cancel", driverInfo.toJson());
 
     setState(() {
       started = false;
@@ -303,7 +301,7 @@ class _NewTripState extends State<NewTrip> {
     tripDataEntity!.driverInfo = driverInfo;
 
     logger.i(tripDataEntity!.toJson());
-    socket.emit("trip_driver_accept", tripDataEntity!.toJson());
+    socket!.emit("trip_driver_accept", tripDataEntity!.toJson());
 
     if (mounted) setState(() {});
     setState(() {});
@@ -313,7 +311,7 @@ class _NewTripState extends State<NewTrip> {
 
   void declineTrip() async {
     tripDataEntity!.driverInfo = driverInfo;
-    socket.emit("trip_driver_decline", tripDataEntity!.toJson());
+    socket!.emit("trip_driver_decline", tripDataEntity!.toJson());
 
     tripDataEntity = null;
     from = null;
@@ -324,13 +322,11 @@ class _NewTripState extends State<NewTrip> {
     from = null;
     to = null;
     tripDataEntity = null;
-
-    socket.disconnect();
   }
 
   void startTrip() async {
     tripDataEntity!.status = ExTripStatus.driving;
-    socket.emit('trip_driver_driving', tripDataEntity!.toJson());
+    socket!.emit('trip_driver_driving', tripDataEntity!.toJson());
     from = await MapHelper.getCurrentLocation();
     to = tripDataEntity!.to;
     await recalcRoute();
@@ -342,7 +338,7 @@ class _NewTripState extends State<NewTrip> {
 
   void completeTrip() async {
     tripDataEntity!.status = ExTripStatus.completed;
-    socket.emit('trip_driver_completed', tripDataEntity!.toJson());
+    socket!.emit('trip_driver_completed', tripDataEntity!.toJson());
     stopLocationUpdates();
     _showTripSummaryPopup(context, tripDataEntity!);
 
@@ -364,7 +360,7 @@ class _NewTripState extends State<NewTrip> {
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
     tripDataEntity?.driverInfo = driverInfo;
     from = driverInfo.currentLocation;
-    socket.emit("location_update", tripDataEntity?.toJson());
+    socket!.emit("location_update", tripDataEntity?.toJson());
 
     await recalcRoute();
     adjustMapViewBounds();
