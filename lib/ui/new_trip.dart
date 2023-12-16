@@ -1,6 +1,8 @@
 // 22850034 ASD Customer App Flutter
 
 import 'dart:math';
+import 'dart:async';
+
 import 'package:customer_app/global.dart';
 import 'package:customer_app/servivces/formatter.dart';
 import 'package:customer_app/servivces/map_service.dart';
@@ -15,13 +17,11 @@ import 'package:customer_app/ui/common.dart';
 import 'package:flutter/material.dart';
 import 'package:customer_app/providers/theme.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'dart:async';
 import 'package:google_maps_webservice/directions.dart' as dir;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:google_maps_webservice/places.dart';
 import 'package:logger/logger.dart';
 import 'package:shimmer/shimmer.dart';
-
-import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../api/google_api.dart';
@@ -41,7 +41,9 @@ class NewTrip extends StatefulWidget {
 
 class _NewTripState extends State<NewTrip> {
   io.Socket? socket;
-  late Timer locationUpdateTimer;
+  Timer? locationUpdateTimer;
+  Timer? redrawPolylineTimer;
+  bool sendingUpdate = false;
   TripDataEntity? tripDataEntity;
 
   LatLngBounds? cameraViewportLatLngBounds;
@@ -109,15 +111,13 @@ class _NewTripState extends State<NewTrip> {
         ),
         fare: data['fare'],
       );
-
-      driverInfo = globalDriver!;
       tripFare = tripDataEntity!.fare;
 
-      showNewTripPopup(tripDataEntity!);
+      _showNewTripPopup(tripDataEntity!);
     });
   }
 
-  Future<void> recalcRoute() async {
+  Future<void> calculateDirection() async {
     tripPolyline = null;
     tripDistanceText = '';
     tripDistanceMeters = 0;
@@ -151,14 +151,14 @@ class _NewTripState extends State<NewTrip> {
           width: 5,
           color: Colors.blue,
           points: polylinePoints);
-      adjustMapViewBounds();
+      updateMapViewPoint();
       if (mounted) setState(() {});
     }
   }
 
   LatLngBounds? _mapCameraViewBounds;
 
-  void adjustMapViewBounds() {
+  void updateMapViewPoint() {
     if (!mounted) return;
 
     //0.001 ~= 100 m
@@ -266,9 +266,10 @@ class _NewTripState extends State<NewTrip> {
   void startWait() async {
     initSocket();
 
-    logger.i("DRIVER_ACTIVE: Start looking for a trip!");
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
     socket!.emit('driver_active', driverInfo.toJson());
+
+    logger.i("DRIVER_ACTIVE: Start looking for a trip!");
 
     setState(() {
       started = true;
@@ -288,14 +289,14 @@ class _NewTripState extends State<NewTrip> {
     });
   }
 
-  void startNewTrip(BuildContext context, CustomerInfo customerInfo,
+  void acceptNewTrip(BuildContext context, CustomerInfo customerInfo,
       TripDataEntity trip) async {
     tripDataEntity = trip;
     from = await MapHelper.getCurrentLocation();
     to = trip.from;
     trip.status = ExTripStatus.allocated;
-    await recalcRoute();
-    adjustMapViewBounds();
+    await calculateDirection();
+    updateMapViewPoint();
 
     driverInfo.currentLocation = from!;
     tripDataEntity!.driverInfo = driverInfo;
@@ -316,6 +317,8 @@ class _NewTripState extends State<NewTrip> {
     tripDataEntity = null;
     from = null;
     to = null;
+    tripFare = 0;
+    tripFareText = '';
   }
 
   void cancelTrip() async {
@@ -329,14 +332,15 @@ class _NewTripState extends State<NewTrip> {
     socket!.emit('trip_driver_driving', tripDataEntity!.toJson());
     from = await MapHelper.getCurrentLocation();
     to = tripDataEntity!.to;
-    await recalcRoute();
-    adjustMapViewBounds();
+
+    await calculateDirection();
+    updateMapViewPoint();
 
     if (mounted) setState(() {});
     setState(() {});
   }
 
-  void completeTrip() async {
+  void finishTrip() async {
     tripDataEntity!.status = ExTripStatus.completed;
     socket!.emit('trip_driver_completed', tripDataEntity!.toJson());
     stopLocationUpdates();
@@ -346,8 +350,8 @@ class _NewTripState extends State<NewTrip> {
     to = null;
     tripDataEntity = null;
 
-    await recalcRoute();
-    adjustMapViewBounds();
+    await calculateDirection();
+    updateMapViewPoint();
 
     if (mounted) setState(() {});
     setState(() {});
@@ -355,30 +359,40 @@ class _NewTripState extends State<NewTrip> {
     logger.i("Trip completed!");
   }
 
-  void sendLocationUpdate() async {
+  void sendDriverLocationUpdate() async {
     logger.i("Sending location update!");
     driverInfo.currentLocation = await MapHelper.getCurrentLocation();
     tripDataEntity?.driverInfo = driverInfo;
-    from = driverInfo.currentLocation;
-    socket!.emit("location_update", tripDataEntity?.toJson());
 
-    await recalcRoute();
-    adjustMapViewBounds();
+    from = driverInfo.currentLocation;
+    socket!.emit("trip_driver_driving_update", tripDataEntity?.toJson());
 
     setState(() {});
   }
 
   void startLocationUpdates() async {
-    // Schedule the location update task every 10 seconds
-    locationUpdateTimer =
-        Timer.periodic(const Duration(seconds: 20), (timer) async {
-      sendLocationUpdate();
+    sendingUpdate = true;
+
+    locationUpdateTimer ??=
+        Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (sendingUpdate) {
+        sendDriverLocationUpdate();
+      }
+    });
+
+    redrawPolylineTimer ??=
+        Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (sendingUpdate) {
+        logger.i("Redrawing polyline using timer!");
+        // await calculateDirection();
+        // updateMapViewPoint();
+      }
     });
   }
 
   void stopLocationUpdates() {
     // Cancel the location update timer
-    locationUpdateTimer.cancel();
+    sendingUpdate = false;
   }
 
   String mainButtonTextHandler() {
@@ -405,7 +419,7 @@ class _NewTripState extends State<NewTrip> {
         cancelWait();
       } else {
         if (tripDataEntity!.status == ExTripStatus.driving) {
-          completeTrip();
+          finishTrip();
         } else {
           startTrip();
         }
@@ -430,12 +444,13 @@ class _NewTripState extends State<NewTrip> {
   @override
   void dispose() {
     // Dispose of the timer when the widget is disposed
-    locationUpdateTimer.cancel();
+    locationUpdateTimer!.cancel();
+    redrawPolylineTimer!.cancel();
 
     super.dispose();
   }
 
-  void showNewTripPopup(TripDataEntity dataEntity) {
+  void _showNewTripPopup(TripDataEntity dataEntity) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -498,7 +513,7 @@ class _NewTripState extends State<NewTrip> {
                       onPressed: () async {
                         // Handle Select button click
                         Navigator.of(context).pop();
-                        startNewTrip(context, tripDataEntity!.customerInfo,
+                        acceptNewTrip(context, tripDataEntity!.customerInfo,
                             tripDataEntity!);
                         // Close the popup
                       },
@@ -529,8 +544,6 @@ class _NewTripState extends State<NewTrip> {
   @override
   void initState() {
     from = LocationProvider.of(context, listen: false).currentAddress;
-    isDarkMapThemeSelected = false;
-
     super.initState();
   }
 
@@ -539,7 +552,6 @@ class _NewTripState extends State<NewTrip> {
     final isDark = ThemeProvider.of(context, listen: false).isDark;
     if (isDark != isDarkMapThemeSelected && mapController != null) {
       mapController!.setMapStyle(googleMapDefaultStyle);
-      isDarkMapThemeSelected = isDark;
     }
 
     super.didChangeDependencies();
