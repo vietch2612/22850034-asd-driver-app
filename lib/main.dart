@@ -7,7 +7,7 @@ import 'package:touch_indicator/touch_indicator.dart';
 import 'package:customer_app/providers/assets_loader.dart';
 import 'package:customer_app/providers/location.dart';
 import 'package:customer_app/ui/common.dart';
-import 'package:customer_app/providers/active_trip.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
 import 'package:customer_app/providers/theme.dart';
 import 'servivces/auth_service.dart';
 

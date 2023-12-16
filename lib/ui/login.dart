@@ -1,17 +1,17 @@
-import 'package:customer_app/providers/active_trip.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
 import 'package:customer_app/providers/location.dart';
 import 'package:customer_app/servivces/auth_service.dart';
 import 'package:customer_app/types/driver_info.dart';
-import 'package:customer_app/types/resolved_address.dart';
+import 'package:customer_app/types/map_address.dart';
 import 'package:customer_app/types/trip.dart';
-import 'package:customer_app/ui/active_trip_scaffold.dart';
-import 'package:customer_app/ui/select_location_scaffold.dart';
+import 'package:customer_app/ui/active_trip.dart';
+import 'package:customer_app/ui/select_location.dart';
 import 'package:customer_app/ui/trip_finished_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:customer_app/global.dart';
 import 'package:google_maps_webservice/places.dart';
 
-import 'new_trip_scaffold.dart';
+import 'new_trip.dart';
 
 class LoginPage extends StatefulWidget {
   final AuthService authService;
@@ -23,8 +23,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  TextEditingController _usernameController = TextEditingController();
-  TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +63,7 @@ class _LoginPageState extends State<LoginPage> {
                   final user =
                       await widget.authService.login(username, password);
 
+                  // ignore: unnecessary_null_comparison
                   if (user != null) {
                     await widget.authService.saveToken(user['token']);
 
@@ -74,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
                       phoneNumber: user['phoneNumber'],
                       name: user['name'],
                       licensePlate: user['licensePlateNumber'],
-                      currentLocation: ResolvedAddress(
+                      currentLocation: MapAddress(
                         location: Location(lat: 1, lng: 1),
                         mainText: "tbd",
                         secondaryText: '',

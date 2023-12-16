@@ -6,11 +6,11 @@ import 'package:customer_app/servivces/formatter.dart';
 import 'package:customer_app/servivces/map_service.dart';
 import 'package:customer_app/types/driver_info.dart';
 import 'package:flutter/foundation.dart';
-import 'package:customer_app/types/resolved_address.dart';
+import 'package:customer_app/types/map_address.dart';
 import 'package:customer_app/types/trip.dart';
 import 'package:customer_app/providers/assets_loader.dart';
 import 'package:customer_app/providers/location.dart';
-import 'package:customer_app/providers/active_trip.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
 import 'package:customer_app/ui/common.dart';
 import 'package:flutter/material.dart';
 import 'package:customer_app/providers/theme.dart';
@@ -46,8 +46,8 @@ class _NewTripState extends State<NewTrip> {
 
   LatLngBounds? cameraViewportLatLngBounds;
 
-  ResolvedAddress? from;
-  ResolvedAddress? to;
+  MapAddress? from;
+  MapAddress? to;
 
   bool started = false;
   DriverInfo driverInfo = globalDriver!;
@@ -71,7 +71,7 @@ class _NewTripState extends State<NewTrip> {
       logger.i('We got a new trip!', data);
 
       CustomerInfo customerInfo = CustomerInfo.fromJson(data['Customer']);
-      ResolvedAddress from = ResolvedAddress(
+      MapAddress from = MapAddress(
         location: Location(
           lat: data['pickupLocationLat'],
           lng: data['pickupLocationLong'],
@@ -80,7 +80,7 @@ class _NewTripState extends State<NewTrip> {
         secondaryText: data['pickupLocation'],
       );
 
-      ResolvedAddress to = ResolvedAddress(
+      MapAddress to = MapAddress(
         location: Location(
           lat: data['dropoffLocationLat'],
           lng: data['dropoffLocationLong'],
@@ -538,9 +538,7 @@ class _NewTripState extends State<NewTrip> {
   void didChangeDependencies() {
     final isDark = ThemeProvider.of(context, listen: false).isDark;
     if (isDark != isDarkMapThemeSelected && mapController != null) {
-      mapController!.setMapStyle(ThemeProvider.of(context, listen: false).isDark
-          ? googleMapDarkStyle
-          : googleMapDefaultStyle);
+      mapController!.setMapStyle(googleMapDefaultStyle);
       isDarkMapThemeSelected = isDark;
     }
 
@@ -592,10 +590,7 @@ class _NewTripState extends State<NewTrip> {
                   final isDark =
                       ThemeProvider.of(context, listen: false).isDark;
                   if (isDark != isDarkMapThemeSelected) {
-                    controller.setMapStyle(
-                        ThemeProvider.of(context, listen: false).isDark
-                            ? googleMapDarkStyle
-                            : googleMapDefaultStyle);
+                    controller.setMapStyle(googleMapDefaultStyle);
                     isDarkMapThemeSelected = isDark;
                   }
                   setState(() {});

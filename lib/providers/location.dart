@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:customer_app/api/google_api.dart';
-import 'package:customer_app/types/resolved_address.dart';
+import 'package:customer_app/types/map_address.dart';
 import 'package:customer_app/ui/common.dart';
 import 'package:google_maps_webservice/places.dart';
 import 'package:provider/provider.dart';
@@ -12,13 +12,13 @@ import 'package:geolocator/geolocator.dart';
 class LocationProvider with ChangeNotifier {
   bool pendingDetermineCurrentLocation = false;
 
-  ResolvedAddress? _currentAddress;
-  set currentAddress(ResolvedAddress? newAddress) {
+  MapAddress? _currentAddress;
+  set currentAddress(MapAddress? newAddress) {
     _currentAddress = newAddress;
     notifyListeners();
   }
 
-  ResolvedAddress? get currentAddress => _currentAddress;
+  MapAddress? get currentAddress => _currentAddress;
 
   bool get isDemoLocationFixed => _currentAddress != null;
 
@@ -42,7 +42,7 @@ class LocationProvider with ChangeNotifier {
       final f = res.results.first;
       final mainPart = (f.addressComponents.length / 2.0).floor();
 
-      currentAddress = ResolvedAddress(
+      currentAddress = MapAddress(
         mainText: f.addressComponents.take(mainPart).join(',').toString(),
         secondaryText: f.addressComponents.skip(mainPart).join(',').toString(),
         location: f.geometry.location,

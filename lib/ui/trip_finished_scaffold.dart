@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:customer_app/types/trip.dart';
-import 'package:customer_app/providers/active_trip.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
 import 'package:customer_app/ui/common.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:customer_app/providers/theme.dart';

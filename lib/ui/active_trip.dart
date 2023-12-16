@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:customer_app/api/google_api.dart';
 import 'package:customer_app/types/trip.dart';
-import 'package:customer_app/providers/active_trip.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:customer_app/providers/assets_loader.dart';
 import 'package:customer_app/ui/common.dart';
@@ -175,12 +175,7 @@ class _ActiveTripState extends State<ActiveTrip> {
                 if (mounted) {
                   mapController!.animateCamera(CameraUpdate.newLatLngBounds(
                       trip.activeTrip!.mapLatLngBounds, 10));
-
-                  final isDark =
-                      ThemeProvider.of(context, listen: false).isDark;
-
-                  controller.setMapStyle(
-                      isDark ? googleMapDarkStyle : googleMapDefaultStyle);
+                  controller.setMapStyle(googleMapDefaultStyle);
 
                   setState(() {});
                 }

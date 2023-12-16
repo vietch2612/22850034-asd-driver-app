@@ -1,7 +1,7 @@
 // 22850034 ASD Customer App Flutter
 
 import 'package:flutter/material.dart';
-import 'package:customer_app/providers/active_trip.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
 import 'package:customer_app/providers/location.dart';
 import 'package:customer_app/providers/theme.dart';
 import 'package:provider/provider.dart';

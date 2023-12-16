@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:customer_app/providers/active_trip.dart';
-import 'package:customer_app/types/resolved_address.dart';
+import 'package:customer_app/providers/active_trip_provider.dart';
+import 'package:customer_app/types/map_address.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -12,8 +12,7 @@ import 'package:google_maps_webservice/places.dart';
 const double thresholdDistance = 0.05;
 
 class MapHelper {
-  static Future<Polyline> getPolyline(
-      ResolvedAddress? from, ResolvedAddress? to) async {
+  static Future<Polyline> getPolyline(MapAddress? from, MapAddress? to) async {
     const Polyline temp = Polyline(
       polylineId: PolylineId('polyline-1'),
       width: 5,
@@ -60,9 +59,9 @@ class MapHelper {
     );
   }
 
-  static Future<ResolvedAddress> getCurrentLocation() async {
+  static Future<MapAddress> getCurrentLocation() async {
     final cp = await Geolocator.getCurrentPosition();
-    return ResolvedAddress(
+    return MapAddress(
         location: Location(lat: cp.latitude, lng: cp.longitude),
         mainText: "mainText",
         secondaryText: "secondaryText");
@@ -89,7 +88,7 @@ class MapHelper {
     return earthRadius * c;
   }
 
-  static bool areAddressesClose(ResolvedAddress from, ResolvedAddress to,
+  static bool areAddressesClose(MapAddress from, MapAddress to,
       {double thresholdDistance = thresholdDistance}) {
     double distance = calculateHaversineDistance(
       from.location,
