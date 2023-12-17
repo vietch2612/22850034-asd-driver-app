@@ -117,7 +117,7 @@ class _NewTripState extends State<NewTrip> {
     });
   }
 
-  Future<void> calculateDirection() async {
+  Future<void> recalPolyline() async {
     tripPolyline = null;
     tripDistanceText = '';
     tripDistanceMeters = 0;
@@ -148,8 +148,8 @@ class _NewTripState extends State<NewTrip> {
 
       tripPolyline = Polyline(
           polylineId: const PolylineId('polyline-1'),
-          width: 5,
-          color: Colors.blue,
+          width: 4,
+          color: Colors.red,
           points: polylinePoints);
       updateMapViewPoint();
       if (mounted) setState(() {});
@@ -295,7 +295,7 @@ class _NewTripState extends State<NewTrip> {
     from = await MapHelper.getCurrentLocation();
     to = trip.from;
     trip.status = ExTripStatus.allocated;
-    await calculateDirection();
+    await recalPolyline();
     updateMapViewPoint();
 
     driverInfo.currentLocation = from!;
@@ -333,11 +333,26 @@ class _NewTripState extends State<NewTrip> {
     from = await MapHelper.getCurrentLocation();
     to = tripDataEntity!.to;
 
-    await calculateDirection();
+    await recalPolyline();
     updateMapViewPoint();
 
     if (mounted) setState(() {});
     setState(() {});
+  }
+
+  void updateMapPolyline(MapAddress newLocation) async {
+    if (tripPolyline == null) return;
+
+    int indexToRemove = tripPolyline!.points.indexWhere(
+      (point) =>
+          point.latitude == newLocation.location.lat &&
+          point.longitude == newLocation.location.lng,
+    );
+
+    if (indexToRemove != -1) {
+      tripPolyline!.points.removeAt(indexToRemove - 1);
+      setState(() {});
+    }
   }
 
   void finishTrip() async {
@@ -350,7 +365,7 @@ class _NewTripState extends State<NewTrip> {
     to = null;
     tripDataEntity = null;
 
-    await calculateDirection();
+    await recalPolyline();
     updateMapViewPoint();
 
     if (mounted) setState(() {});
@@ -366,8 +381,7 @@ class _NewTripState extends State<NewTrip> {
 
     from = driverInfo.currentLocation;
     socket!.emit("trip_driver_driving_update", tripDataEntity?.toJson());
-
-    setState(() {});
+    updateMapPolyline(driverInfo.currentLocation);
   }
 
   void startLocationUpdates() async {
@@ -384,8 +398,7 @@ class _NewTripState extends State<NewTrip> {
         Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (sendingUpdate) {
         logger.i("Redrawing polyline using timer!");
-        // await calculateDirection();
-        // updateMapViewPoint();
+        // await recalPolyline();
       }
     });
   }
